@@ -1,0 +1,12 @@
+{
+    "name": "vouch",
+    "description": "Give a vouch to a user.",
+    "options": [
+        {
+            "name": "user",
+            "description": "User to vouch for",
+            "type": 6,
+            "required": true
+        }
+    ]
+}

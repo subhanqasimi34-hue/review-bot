@@ -1,0 +1,12 @@
+{
+    "name": "profile",
+    "description": "View a user's review profile.",
+    "options": [
+        {
+            "name": "user",
+            "description": "User to view",
+            "type": 6,
+            "required": false
+        }
+    ]
+}
