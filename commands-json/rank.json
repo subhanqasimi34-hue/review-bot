@@ -1,10 +1,11 @@
 {
     "name": "rank",
-    "description": "Show rank and points of a user.",
+    "description": "Show the rank and points of a user.",
+    "type": 1,
     "options": [
         {
             "name": "user",
-            "description": "User to view rank for",
+            "description": "Select a user to view their rank.",
             "type": 6,
             "required": false
         }
