@@ -13,35 +13,31 @@ export default async function handler(req, res) {
     const interaction = req.body;
 
     try {
-        // Handle Slash Commands
+        // Slash command received
         if (interaction.type === InteractionType.APPLICATION_COMMAND) {
-            const command = interaction.data.name;
+            const name = interaction.data.name;
 
-            switch (command) {
-                case "review":
-                    return reviewCommand(interaction, res);
+            const commands = {
+                review: reviewCommand,
+                profile: profileCommand,
+                leaderboard: leaderboardCommand,
+                rank: rankCommand,
+                vouch: vouchCommand
+            };
 
-                case "profile":
-                    return profileCommand(interaction, res);
-
-                case "leaderboard":
-                    return leaderboardCommand(interaction, res);
-
-                case "rank":
-                    return rankCommand(interaction, res);
-
-                case "vouch":
-                    return vouchCommand(interaction, res);
-
-                default:
-                    return res.send({
-                        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                        data: { content: "❌ Unknown command." }
-                    });
+            // command exists?
+            if (commands[name]) {
+                return commands[name](interaction, res);
             }
+
+            // unknown command
+            return res.send({
+                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                data: { content: "❌ Unknown command." }
+            });
         }
 
-        // Unsupported interaction types
+        // unsupported type
         return res.send({
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: { content: "⚠️ Unsupported interaction type." }
@@ -49,6 +45,7 @@ export default async function handler(req, res) {
 
     } catch (err) {
         console.error("❌ Handler Error:", err);
+
         return res.send({
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: { content: "❌ Internal bot error." }
