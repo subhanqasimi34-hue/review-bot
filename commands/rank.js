@@ -1,43 +1,43 @@
+import { InteractionResponseType } from "discord-interactions";
 import db from "../utils/database.js";
-import { EmbedBuilder } from "discord.js";
 
-export default async function handleRank(interaction) {
-    const user = interaction.options.getUser("user") || interaction.user;
+function getBadge(points) {
+    if (points >= 5000) return "🏆 Champion";
+    if (points >= 3000) return "👑 Emerald";
+    if (points >= 2000) return "🔥 Ruby";
+    if (points >= 1000) return "💎 Diamond";
+    if (points >= 500) return "🥇 Gold";
+    if (points >= 200) return "🥈 Silver";
+    if (points >= 50) return "🥉 Bronze";
+    return "🪙 Unranked";
+}
 
-    // get total points
-    const row = await db.get(
-        "SELECT SUM(points) AS total FROM points WHERE userID = ?",
-        [user.id]
-    );
+export default async function rankCommand(interaction, res) {
+    const target =
+        interaction.data.options?.[0]?.value ||
+        interaction.member.user.id;
 
-    const points = row?.total || 0;
+    const row = db.prepare(
+        "SELECT points FROM users WHERE user_id = ?"
+    ).get(target);
 
-    // Badge system
-    let badge = "🪙 Unranked";
-    let color = 0x777777;
+    const points = row?.points || 0;
+    const badge = getBadge(points);
 
-    if (points >= 5000) { badge = "🏆 Champion"; color = 0xffd700; }
-    else if (points >= 3000) { badge = "👑 Emerald"; color = 0x50c878; }
-    else if (points >= 2000) { badge = "🔥 Ruby"; color = 0xe0115f; }
-    else if (points >= 1000) { badge = "💎 Diamond"; color = 0x00e5ff; }
-    else if (points >= 500) { badge = "🥇 Gold"; color = 0xffd700; }
-    else if (points >= 200) { badge = "🥈 Silver"; color = 0xc0c0c0; }
-    else if (points >= 50) { badge = "🥉 Bronze"; color = 0xcd7f32; }
-
-    // Build embed
-    const embed = new EmbedBuilder()
-        .setColor(color)
-        .setTitle(`🏅 Rank Status`)
-        .setThumbnail(user.displayAvatarURL())
-        .addFields(
-            { name: "User", value: `<@${user.id}>`, inline: true },
-            { name: "Points", value: `${points}`, inline: true },
-            { name: "Badge", value: `${badge}`, inline: true }
-        )
-        .setTimestamp();
-
-    return interaction.reply({
-        embeds: [embed],
-        ephemeral: false
+    return res.send({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: {
+            embeds: [
+                {
+                    title: `🏅 Rank for <@${target}>`,
+                    color: 0x00aaff,
+                    fields: [
+                        { name: "Points", value: String(points), inline: true },
+                        { name: "Badge", value: badge, inline: true }
+                    ],
+                    timestamp: new Date().toISOString()
+                }
+            ]
+        }
     });
 }
