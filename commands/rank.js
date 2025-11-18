@@ -1,12 +1,10 @@
 import db from "../utils/database.js";
-import {
-    EmbedBuilder
-} from "discord.js";
+import { EmbedBuilder } from "discord.js";
 
 export default async function handleRank(interaction) {
     const user = interaction.options.getUser("user") || interaction.user;
 
-    // Points abrufen
+    // get total points
     const row = await db.get(
         "SELECT SUM(points) AS total FROM points WHERE userID = ?",
         [user.id]
@@ -14,9 +12,9 @@ export default async function handleRank(interaction) {
 
     const points = row?.total || 0;
 
-    // Badge-System
-    let badge = "Unranked";
-    let color = 0x808080;
+    // Badge system
+    let badge = "🪙 Unranked";
+    let color = 0x777777;
 
     if (points >= 5000) { badge = "🏆 Champion"; color = 0xffd700; }
     else if (points >= 3000) { badge = "👑 Emerald"; color = 0x50c878; }
@@ -26,16 +24,20 @@ export default async function handleRank(interaction) {
     else if (points >= 200) { badge = "🥈 Silver"; color = 0xc0c0c0; }
     else if (points >= 50) { badge = "🥉 Bronze"; color = 0xcd7f32; }
 
-    // Embed
+    // Build embed
     const embed = new EmbedBuilder()
         .setColor(color)
-        .setTitle(`Rank for ${user.username}`)
+        .setTitle(`🏅 Rank Status`)
         .setThumbnail(user.displayAvatarURL())
         .addFields(
+            { name: "User", value: `<@${user.id}>`, inline: true },
             { name: "Points", value: `${points}`, inline: true },
             { name: "Badge", value: `${badge}`, inline: true }
         )
         .setTimestamp();
 
-    await interaction.reply({ embeds: [embed] });
+    return interaction.reply({
+        embeds: [embed],
+        ephemeral: false
+    });
 }
