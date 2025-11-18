@@ -1,0 +1,9 @@
+
+CREATE TABLE IF NOT EXISTS reviews (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    author_id TEXT NOT NULL,
+    target_id TEXT NOT NULL,
+    rating INTEGER NOT NULL,
+    comment TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);

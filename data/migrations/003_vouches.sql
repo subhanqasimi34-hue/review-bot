@@ -1,0 +1,8 @@
+
+CREATE TABLE IF NOT EXISTS vouches (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    author_id TEXT NOT NULL,
+    target_id TEXT NOT NULL,
+    message TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
