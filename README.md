@@ -103,3 +103,4 @@ Redeploy service → your bot is online!
 ---
 
 
+## Made by Red_thz Discord!!
