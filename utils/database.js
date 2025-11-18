@@ -1,7 +1,9 @@
 import Database from "better-sqlite3";
 
+// Database file
 const db = new Database("./data/database.sqlite");
 
+// Create tables if they don’t exist
 db.exec(`
 CREATE TABLE IF NOT EXISTS users (
     user_id TEXT PRIMARY KEY,
@@ -28,15 +30,13 @@ CREATE TABLE IF NOT EXISTS vouches (
 );
 `);
 
-
-// ⭐ REVIEW hinzufügen
+// Add review and update review stats
 export function addReview(targetId, reviewerId, rating, category, comment) {
     db.prepare(`
         INSERT INTO reviews (target_id, reviewer_id, rating, category, comment)
         VALUES (?, ?, ?, ?, ?)
     `).run(targetId, reviewerId, rating, category, comment);
 
-    // Punkte: jede Bewertung gibt rating × 10
     const points = rating * 10;
 
     db.prepare(`
@@ -48,8 +48,7 @@ export function addReview(targetId, reviewerId, rating, category, comment) {
     `).run(targetId, points);
 }
 
-
-// 💚 Vouch hinzufügen
+// Add vouch (+10 points)
 export function addVouch(targetId, senderId) {
     db.prepare(`
         INSERT INTO vouches (target_id, sender_id)
@@ -65,37 +64,33 @@ export function addVouch(targetId, senderId) {
     `).run(targetId);
 }
 
-
-// ➕ Punkte hinzufügen
-export function addPoints(userId, amount) {
+// ⭐ NEW — addPoints (for review.js & vouch.js)
+export function addPoints(userId, points) {
     db.prepare(`
         INSERT INTO users (user_id, points)
         VALUES (?, ?)
         ON CONFLICT(user_id) DO UPDATE SET
             points = points + excluded.points
-    `).run(userId, amount);
+    `).run(userId, points);
 }
 
-
-// 🔎 Reviews laden
+// Get all reviews for a user
 export function getReviewsForUser(userId) {
     return db.prepare(`
-        SELECT * FROM reviews
-        WHERE target_id = ?
+        SELECT * FROM reviews 
+        WHERE target_id = ? 
         ORDER BY id DESC
     `).all(userId);
 }
 
-
-// 🔎 User Stats laden
+// Get stats for profile command
 export function getUserStats(userId) {
     return db.prepare(`
         SELECT * FROM users WHERE user_id = ?
     `).get(userId);
 }
 
-
-// 🏆 Leaderboard
+// Get leaderboard data
 export function getLeaderboard(limit = 10) {
     return db.prepare(`
         SELECT * FROM users
