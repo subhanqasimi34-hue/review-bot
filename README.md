@@ -102,5 +102,4 @@ Redeploy service → your bot is online!
 
 ---
 
-## ❤️ Credits
-Created automatically by ChatGPT for your custom Discord bot project.
+
