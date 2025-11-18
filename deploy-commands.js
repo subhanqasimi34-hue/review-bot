@@ -1,26 +1,24 @@
 import { REST, Routes } from "discord.js";
 import fs from "fs";
-import dotenv from "dotenv";
+import config from "./config.json" assert { type: "json" };
 
-dotenv.config(); // load .env if exists
-
-// Load command JSON definitions
+// Load command JSON files
 const commands = [];
 const files = fs.readdirSync("./commands-json").filter(f => f.endsWith(".json"));
 
 for (const file of files) {
-    const json = JSON.parse(fs.readFileSync(`./commands-json/${file}`, "utf8"));
-    commands.push(json);
+    const data = JSON.parse(fs.readFileSync(`./commands-json/${file}`, "utf8"));
+    commands.push(data);
 }
 
-const rest = new REST({ version: "10" }).setToken(process.env.BOT_TOKEN);
+const rest = new REST({ version: "10" }).setToken(config.botToken);
 
 async function deploy() {
     try {
         console.log("🔧 Registering slash commands...");
 
         await rest.put(
-            Routes.applicationCommands(process.env.CLIENT_ID),
+            Routes.applicationCommands(config.clientId),
             { body: commands }
         );
 
