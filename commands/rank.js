@@ -1,43 +1,27 @@
-import { InteractionResponseType } from "discord-interactions";
-import db from "../utils/database.js";
+import { SlashCommandBuilder } from "discord.js";
 
-function getBadge(points) {
-    if (points >= 5000) return "🏆 Champion";
-    if (points >= 3000) return "👑 Emerald";
-    if (points >= 2000) return "🔥 Ruby";
-    if (points >= 1000) return "💎 Diamond";
-    if (points >= 500) return "🥇 Gold";
-    if (points >= 200) return "🥈 Silver";
-    if (points >= 50) return "🥉 Bronze";
-    return "🪙 Unranked";
-}
+export default {
+    data: new SlashCommandBuilder()
+        .setName("rank")
+        .setDescription("Zeigt deinen Punktestand.")
+        .addUserOption(o =>
+            o.setName("user").setDescription("Optional").setRequired(false)
+        ),
 
-export default async function rankCommand(interaction, res) {
-    const target =
-        interaction.data.options?.[0]?.value ||
-        interaction.member.user.id;
+    async execute(interaction, db) {
+        const target = interaction.data.options?.[0]?.value || interaction.user.id;
 
-    const row = db.prepare(
-        "SELECT points FROM users WHERE user_id = ?"
-    ).get(target);
+        const row = await dbGet(db,
+            "SELECT points FROM points WHERE user_id = ?",
+            [target]
+        );
 
-    const points = row?.points || 0;
-    const badge = getBadge(points);
+        interaction.reply(`<@${target}> hat **${row?.points || 0} Punkte**.`);
+    }
+};
 
-    return res.send({
-        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-        data: {
-            embeds: [
-                {
-                    title: `🏅 Rank for <@${target}>`,
-                    color: 0x00aaff,
-                    fields: [
-                        { name: "Points", value: String(points), inline: true },
-                        { name: "Badge", value: badge, inline: true }
-                    ],
-                    timestamp: new Date().toISOString()
-                }
-            ]
-        }
+function dbGet(db, sql, params = []) {
+    return new Promise((resolve, reject) => {
+        db.get(sql, params, (err, row) => err ? reject(err) : resolve(row));
     });
 }
