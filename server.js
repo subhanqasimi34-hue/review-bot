@@ -1,3 +1,4 @@
+import "./utils/database.js"; // lädt DB + Migrationen automatisch
 import express from "express";
 import { verifyKeyMiddleware } from "discord-interactions";
 import handler from "./handler.js";
@@ -17,7 +18,7 @@ app.post(
     handler
 );
 
-// Port for Render
+// Port für Render
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`🚀 Review Bot Webhook live on PORT ${PORT}`);
