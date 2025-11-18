@@ -1,26 +1,32 @@
 import { InteractionResponseType } from "discord-interactions";
-import { addPoints } from "../utils/database.js";
+import { addVouch } from "../utils/database.js";
 
 export default async function vouchCommand(interaction, res) {
-    const author = interaction.member.user.id;
+    const sender = interaction.member.user.id;
     const target = interaction.data.options[0]?.value;
 
+    // no user selected
     if (!target) {
         return res.send({
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-            data: { content: "❌ You must choose a user to vouch for." }
+            data: {
+                content: "❌ You must choose a user to vouch for."
+            }
         });
     }
 
-    if (author === target) {
+    // cannot vouch yourself
+    if (sender === target) {
         return res.send({
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-            data: { content: "❌ You cannot vouch for yourself." }
+            data: {
+                content: "❌ You cannot vouch for yourself."
+            }
         });
     }
 
-    // Punkte hinzufügen (+10)
-    addPoints(target, 10);
+    // save vouch in SQLite
+    addVouch(target, sender);
 
     return res.send({
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
@@ -30,11 +36,11 @@ export default async function vouchCommand(interaction, res) {
                     title: "💚 New Vouch Added",
                     color: 0x00ff6a,
                     fields: [
-                        { name: "User", value: `<@${target}>`, inline: true },
-                        { name: "Given by", value: `<@${author}>`, inline: true },
+                        { name: "Receiver", value: `<@${target}>`, inline: true },
+                        { name: "Given by", value: `<@${sender}>`, inline: true },
                         { name: "Points Added", value: "+10", inline: true }
                     ],
-                    footer: { text: "Vouch System" },
+                    footer: { text: "Vouch System — stored in database" },
                     timestamp: new Date().toISOString()
                 }
             ]
