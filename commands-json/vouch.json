@@ -1,10 +1,11 @@
 {
     "name": "vouch",
-    "description": "Give a vouch to a user.",
+    "description": "Give a vouch (+10 points) to a user.",
+    "type": 1,
     "options": [
         {
             "name": "user",
-            "description": "User to vouch for",
+            "description": "Select the user you want to vouch for.",
             "type": 6,
             "required": true
         }
