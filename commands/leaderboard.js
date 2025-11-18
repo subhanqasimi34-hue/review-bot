@@ -1,53 +1,33 @@
-import { InteractionResponseType } from "discord-interactions";
-import { getLeaderboard } from "../utils/database.js";
+import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 
-// Badge system like rank.js
-function getBadge(points) {
-    if (points >= 5000) return "🏆 Champion";
-    if (points >= 3000) return "👑 Emerald";
-    if (points >= 2000) return "🔥 Ruby";
-    if (points >= 1000) return "💎 Diamond";
-    if (points >= 500) return "🥇 Gold";
-    if (points >= 200) return "🥈 Silver";
-    if (points >= 50) return "🥉 Bronze";
-    return "🪙 Unranked";
-}
+export default {
+    data: new SlashCommandBuilder()
+        .setName("leaderboard")
+        .setDescription("Zeigt die Top 10 Nutzer."),
 
-export default function leaderboardCommand(interaction, res) {
-    const rows = getLeaderboard(10);
+    async execute(interaction, db) {
+        const rows = await dbAll(db,
+            "SELECT user_id, points FROM points ORDER BY points DESC LIMIT 10"
+        );
 
-    if (!rows || rows.length === 0) {
-        return res.send({
-            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-            data: { content: "📉 No leaderboard data found." }
-        });
+        if (!rows.length)
+            return interaction.reply("Noch keine Punkte gespeichert.");
+
+        const list = rows
+            .map((u, i) => `**#${i + 1}** <@${u.user_id}> — ${u.points} Punkte`)
+            .join("\n");
+
+        const embed = new EmbedBuilder()
+            .setTitle("🏆 Leaderboard")
+            .setColor("#FFD700")
+            .setDescription(list);
+
+        interaction.reply({ embeds: [embed] });
     }
+};
 
-    const description = rows
-        .map((row, i) => {
-            const place =
-                i === 0 ? "🥇" :
-                i === 1 ? "🥈" :
-                i === 2 ? "🥉" :
-                `${i + 1}.`;
-
-            const badge = getBadge(row.points);
-
-            return `${place} ${badge} — <@${row.user_id}> — **${row.points} pts**`;
-        })
-        .join("\n");
-
-    return res.send({
-        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-        data: {
-            embeds: [
-                {
-                    title: "🏆 Leaderboard — Top 10",
-                    color: 0x5865f2,
-                    description: description,
-                    timestamp: new Date().toISOString()
-                }
-            ]
-        }
+function dbAll(db, sql, params = []) {
+    return new Promise((resolve, reject) => {
+        db.all(sql, params, (err, rows) => err ? reject(err) : resolve(rows));
     });
 }
