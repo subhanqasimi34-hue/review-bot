@@ -1,7 +1,7 @@
-import db from "../utils/database.js";
-import { EmbedBuilder } from "discord.js";
+import { InteractionResponseType } from "discord-interactions";
+import { getLeaderboard } from "../utils/database.js";
 
-// Badge system – SAME as your rank.js
+// Badge system like rank.js
 function getBadge(points) {
     if (points >= 5000) return "🏆 Champion";
     if (points >= 3000) return "👑 Emerald";
@@ -13,38 +13,41 @@ function getBadge(points) {
     return "🪙 Unranked";
 }
 
-export default async function handleLeaderboard(interaction) {
-    // Pull top 10 users
-    const rows = await db.all(
-        "SELECT userID, SUM(points) AS total FROM points GROUP BY userID ORDER BY total DESC LIMIT 10"
-    );
+export default function leaderboardCommand(interaction, res) {
+    const rows = getLeaderboard(10);
 
     if (!rows || rows.length === 0) {
-        return interaction.reply({
-            content: "❌ No leaderboard data found.",
-            ephemeral: true
+        return res.send({
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+            data: { content: "📉 No leaderboard data found." }
         });
     }
 
-    let description = "";
-    let position = 1;
+    const description = rows
+        .map((row, i) => {
+            const place =
+                i === 0 ? "🥇" :
+                i === 1 ? "🥈" :
+                i === 2 ? "🥉" :
+                `${i + 1}.`;
 
-    for (const row of rows) {
-        const user = await interaction.client.users.fetch(row.userID).catch(() => null);
-        const username = user ? user.tag : `Unknown User (${row.userID})`;
+            const badge = getBadge(row.points);
 
-        const badge = getBadge(row.total);
+            return `${place} ${badge} — <@${row.user_id}> — **${row.points} pts**`;
+        })
+        .join("\n");
 
-        description += `**${position}.** ${badge} — <@${row.userID}> — **${row.total} points**\n`;
-        position++;
-    }
-
-    const embed = new EmbedBuilder()
-        .setColor(0x5865f2)
-        .setTitle("🏆 Leaderboard — Top 10")
-        .setDescription(description)
-        .setTimestamp()
-        .setFooter({ text: "Ranking System" });
-
-    await interaction.reply({ embeds: [embed] });
+    return res.send({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: {
+            embeds: [
+                {
+                    title: "🏆 Leaderboard — Top 10",
+                    color: 0x5865f2,
+                    description: description,
+                    timestamp: new Date().toISOString()
+                }
+            ]
+        }
+    });
 }
