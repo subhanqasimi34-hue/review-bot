@@ -61,4 +61,5 @@ client.once("ready", () => {
     console.log(`Bot logged in as ${client.user.tag}`);
 });
 
-client.login(config.token);
+// 🔥 Wichtig: Nutzt ENV Token statt config.json
+client.login(process.env.TOKEN);
