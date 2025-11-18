@@ -1,7 +1,6 @@
-import db from "../utils/database.js";
-import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
+import { InteractionResponseType } from "discord-interactions";
+import { getUserStats, getReviewsForUser } from "../utils/database.js";
 
-// Badge system
 function getBadge(points) {
     if (points >= 5000) return "🏆 Champion";
     if (points >= 3000) return "👑 Emerald";
@@ -13,105 +12,49 @@ function getBadge(points) {
     return "🪙 Unranked";
 }
 
-export default async function handleProfile(interaction) {
+export default function profileCommand(interaction, res) {
     const target =
-        interaction.options.getUser("user")?.id ||
-        interaction.user.id;
+        interaction.data.options?.[0]?.value ||
+        interaction.member.user.id;
 
-    const stats = await db.get(
-        "SELECT SUM(points) AS total FROM points WHERE userID = ?",
-        [target]
-    );
+    const stats = getUserStats(target) || {
+        points: 0,
+        reviews_count: 0,
+        vouches_count: 0
+    };
 
-    const totalPoints = stats?.total || 0;
-    const badge = getBadge(totalPoints);
+    const badge = getBadge(stats.points);
 
-    // Get reviews
-    const reviews = await db.all(
-        "SELECT * FROM reviews WHERE targetID = ? ORDER BY id DESC",
-        [target]
-    );
+    const reviews = getReviewsForUser(target);
 
-    if (!reviews || reviews.length === 0) {
-        const embed = new EmbedBuilder()
-            .setTitle(`📘 Profile of <@${target}>`)
-            .setColor(0x0099ff)
-            .setDescription("This user has no reviews yet.")
-            .addFields(
-                { name: "Points", value: `${totalPoints}`, inline: true },
-                { name: "Rank", value: badge, inline: true }
-            );
+    const reviewList =
+        reviews.length === 0
+            ? "No reviews yet."
+            : reviews
+                  .slice(0, 10)
+                  .map(
+                      r =>
+                          `⭐ **${r.rating}** — *${r.category}*\n📝 ${r.comment}\n👤 Reviewer: <@${r.reviewer_id}>\n`
+                  )
+                  .join("\n");
 
-        return interaction.reply({ embeds: [embed], ephemeral: false });
-    }
-
-    // Pagination settings
-    let page = 0;
-    const reviewsPerPage = 3;
-    const totalPages = Math.ceil(reviews.length / reviewsPerPage);
-
-    function generatePageEmbed(pageIndex) {
-        const start = pageIndex * reviewsPerPage;
-        const end = start + reviewsPerPage;
-        const slice = reviews.slice(start, end);
-
-        const embed = new EmbedBuilder()
-            .setTitle(`📘 Profile of <@${target}>`)
-            .setColor(0x0099ff)
-            .addFields(
-                { name: "Points", value: `${totalPoints}`, inline: true },
-                { name: "Rank", value: badge, inline: true },
-                { name: "Total Reviews", value: `${reviews.length}`, inline: true }
-            );
-
-        let desc = "";
-
-        for (const r of slice) {
-            desc += `⭐ **${r.stars}** — *${r.category}*\nReviewer: <@${r.reviewerID}>\n\n`;
+    return res.send({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: {
+            embeds: [
+                {
+                    title: `📘 Profile of <@${target}>`,
+                    color: 0x0099ff,
+                    fields: [
+                        { name: "Points", value: `${stats.points}`, inline: true },
+                        { name: "Rank", value: badge, inline: true },
+                        { name: "Reviews", value: `${stats.reviews_count}`, inline: true },
+                        { name: "Vouches", value: `${stats.vouches_count}`, inline: true },
+                        { name: "Recent Reviews", value: reviewList }
+                    ],
+                    timestamp: new Date().toISOString()
+                }
+            ]
         }
-
-        embed.setDescription(desc);
-        embed.setFooter({ text: `Page ${pageIndex + 1} / ${totalPages}` });
-
-        return embed;
-    }
-
-    const backBtn = new ButtonBuilder()
-        .setCustomId("profile_prev")
-        .setLabel("Previous")
-        .setStyle(ButtonStyle.Primary);
-
-    const nextBtn = new ButtonBuilder()
-        .setCustomId("profile_next")
-        .setLabel("Next")
-        .setStyle(ButtonStyle.Primary);
-
-    const row = new ActionRowBuilder().addComponents(backBtn, nextBtn);
-
-    await interaction.reply({
-        embeds: [generatePageEmbed(page)],
-        components: [row],
-        ephemeral: false
-    });
-
-    const collector = interaction.channel.createMessageComponentCollector({
-        time: 120_000
-    });
-
-    collector.on("collect", async (btn) => {
-        if (btn.user.id !== interaction.user.id) {
-            return btn.reply({ content: "❌ Only the command user can scroll.", ephemeral: true });
-        }
-
-        if (btn.customId === "profile_prev") {
-            page = page <= 0 ? totalPages - 1 : page - 1;
-        } else if (btn.customId === "profile_next") {
-            page = page >= totalPages - 1 ? 0 : page + 1;
-        }
-
-        await btn.update({
-            embeds: [generatePageEmbed(page)],
-            components: [row]
-        });
     });
 }
