@@ -1,60 +1,75 @@
-import { InteractionResponseType } from "discord-interactions";
-import { getUserStats, getReviewsForUser } from "../utils/database.js";
+import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 
-function getBadge(points) {
-    if (points >= 5000) return "🏆 Champion";
-    if (points >= 3000) return "👑 Emerald";
-    if (points >= 2000) return "🔥 Ruby";
-    if (points >= 1000) return "💎 Diamond";
-    if (points >= 500) return "🥇 Gold";
-    if (points >= 200) return "🥈 Silver";
-    if (points >= 50) return "🥉 Bronze";
-    return "🪙 Unranked";
-}
+export default {
+    data: new SlashCommandBuilder()
+        .setName("profile")
+        .setDescription("Zeigt dein Review & Vouch Profil.")
+        .addUserOption(option =>
+            option.setName("user")
+                .setDescription("Wessen Profil willst du sehen?")
+        ),
 
-export default function profileCommand(interaction, res) {
-    const target =
-        interaction.data.options?.[0]?.value ||
-        interaction.member.user.id;
+    async execute(interaction, db) {
+        const target = interaction.data.options?.[0]?.value || interaction.user.id;
 
-    const stats = getUserStats(target) || {
-        points: 0,
-        reviews_count: 0,
-        vouches_count: 0
-    };
+        // User Infos
+        const user = interaction.member.user;
+        const username = user.username;
 
-    const badge = getBadge(stats.points);
+        try {
+            // Reviews zählen
+            const reviews = await dbGet(db,
+                "SELECT COUNT(*) AS total, AVG(rating) AS average FROM reviews WHERE target_id = ?",
+                [target]
+            );
 
-    const reviews = getReviewsForUser(target);
+            // Vouches zählen
+            const vouches = await dbGet(db,
+                "SELECT COUNT(*) AS amount FROM vouches WHERE target_id = ?",
+                [target]
+            );
 
-    const reviewList =
-        reviews.length === 0
-            ? "No reviews yet."
-            : reviews
-                  .slice(0, 10)
-                  .map(
-                      r =>
-                          `⭐ **${r.rating}** — *${r.category}*\n📝 ${r.comment}\n👤 Reviewer: <@${r.reviewer_id}>\n`
-                  )
-                  .join("\n");
+            // Punkte
+            const points = await dbGet(db,
+                "SELECT points FROM points WHERE user_id = ?",
+                [target]
+            );
 
-    return res.send({
-        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-        data: {
-            embeds: [
-                {
-                    title: `📘 Profile of <@${target}>`,
-                    color: 0x0099ff,
-                    fields: [
-                        { name: "Points", value: `${stats.points}`, inline: true },
-                        { name: "Rank", value: badge, inline: true },
-                        { name: "Reviews", value: `${stats.reviews_count}`, inline: true },
-                        { name: "Vouches", value: `${stats.vouches_count}`, inline: true },
-                        { name: "Recent Reviews", value: reviewList }
-                    ],
-                    timestamp: new Date().toISOString()
-                }
-            ]
+            const embed = new EmbedBuilder()
+                .setTitle(`📌 Profil von <@${target}>`)
+                .setColor("#00bfff")
+                .addFields(
+                    {
+                        name: "⭐ Reviews",
+                        value: `${reviews.total} insgesamt\nDurchschnitt: ${reviews.average ? reviews.average.toFixed(2) : "N/A"}`
+                    },
+                    {
+                        name: "🤝 Vouches",
+                        value: `${vouches.amount} erhalten`
+                    },
+                    {
+                        name: "🏆 Punkte",
+                        value: `${points?.points || 0}`
+                    }
+                )
+                .setThumbnail(`https://cdn.discordapp.com/avatars/${target}/${user.avatar}.png`)
+                .setTimestamp();
+
+            interaction.reply({ embeds: [embed] });
+
+        } catch (err) {
+            console.error(err);
+            interaction.reply("Fehler beim Laden des Profils.");
         }
+    }
+};
+
+// Helper für db.get
+function dbGet(db, sql, params = []) {
+    return new Promise((resolve, reject) => {
+        db.get(sql, params, (err, row) => {
+            if (err) reject(err);
+            else resolve(row || {});
+        });
     });
 }
