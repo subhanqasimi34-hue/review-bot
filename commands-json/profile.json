@@ -1,13 +1,49 @@
-{
-    "name": "profile",
-    "description": "View a user's review profile.",
-    "type": 1,
-    "options": [
-        {
-            "name": "user",
-            "description": "Select a user to view their profile.",
-            "type": 6,
-            "required": false
-        }
-    ]
-}
+const { SlashCommandBuilder } = require('discord.js');
+const sqlite3 = require('sqlite3').verbose();
+const db = new sqlite3.Database('./data/reviews.db');
+
+module.exports = {
+  data: new SlashCommandBuilder()
+    .setName('profile')
+    .setDescription("Zeigt das Review-Profil eines Helpers")
+    .addUserOption(option =>
+      option.setName('user')
+        .setDescription('Wähle einen User aus')
+        .setRequired(false)
+    ),
+
+  async execute(interaction) {
+    const user = interaction.options.getUser('user') || interaction.user;
+
+    db.all(`SELECT stars, category, comment, timestamp FROM reviews WHERE helper_id = ? ORDER BY timestamp DESC LIMIT 5`, [user.id], async (err, rows) => {
+      if (err) {
+        console.error(err);
+        return interaction.reply({ content: 'Fehler beim Laden des Profils.', ephemeral: true });
+      }
+
+      if (rows.length === 0) {
+        return interaction.reply({ content: `Keine Reviews für <@${user.id}> gefunden.`, ephemeral: true });
+      }
+
+      let totalXp = rows.length * 60;
+      let level = getLevel(totalXp);
+
+      let reviewList = rows.map((r, i) => {
+        return `**${i + 1}.** ⭐ ${r.stars} – ${r.category} – *${r.comment}* (${new Date(r.timestamp).toLocaleDateString()})`;
+      }).join('\n');
+
+      await interaction.reply({
+        content: `📄 **Profil von <@${user.id}>**\n\n🏅 Level: ${level}\n✨ XP: ${totalXp}\n\n**Letzte Reviews:**\n${reviewList}`,
+        ephemeral: false
+      });
+    });
+
+    function getLevel(xp) {
+      if (xp >= 1500) return "Champion";
+      if (xp >= 1000) return "Platin";
+      if (xp >= 600) return "Gold";
+      if (xp >= 300) return "Silber";
+      return "Bronze";
+    }
+  },
+};
