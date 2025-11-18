@@ -1,4 +1,5 @@
 {
     "name": "leaderboard",
-    "description": "Show the top users by points."
+    "description": "Show the top 10 users based on their ranking points.",
+    "type": 1
 }
