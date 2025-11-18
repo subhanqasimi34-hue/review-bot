@@ -1,5 +1,40 @@
-{
-    "name": "leaderboard",
-    "description": "Show the top 10 users based on their ranking points.",
-    "type": 1
-}
+const { SlashCommandBuilder } = require('discord.js');
+const sqlite3 = require('sqlite3').verbose();
+const db = new sqlite3.Database('./data/reviews.db');
+
+module.exports = {
+  data: new SlashCommandBuilder()
+    .setName('leaderbc')
+    .setDescription('Zeigt das Leaderboard der aktivsten Helper'),
+
+  async execute(interaction) {
+    try {
+      db.all(`SELECT helper_id, COUNT(*) AS review_count, SUM(xp) AS total_xp
+              FROM reviews
+              GROUP BY helper_id
+              ORDER BY total_xp DESC
+              LIMIT 10`, async (err, rows) => {
+        if (err) {
+          console.error(err);
+          return interaction.reply({ content: 'Fehler beim Laden des Leaderboards.', ephemeral: true });
+        }
+
+        if (rows.length === 0) {
+          return interaction.reply({ content: 'Noch keine Bewertungen vorhanden.', ephemeral: true });
+        }
+
+        let leaderboard = rows.map((row, index) => {
+          return `**${index + 1}.** <@${row.helper_id}> – ${row.review_count} Reviews, ${row.total_xp} XP`;
+        }).join('\n');
+
+        await interaction.reply({
+          content: `🏆 **Leaderboard der aktivsten Helper** 🏆\n\n${leaderboard}`,
+          ephemeral: false
+        });
+      });
+    } catch (error) {
+      console.error(error);
+      await interaction.reply({ content: 'Ein unerwarteter Fehler ist aufgetreten.', ephemeral: true });
+    }
+  },
+};
