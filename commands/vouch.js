@@ -1,41 +1,43 @@
-import db from "../utils/database.js";
-import { EmbedBuilder } from "discord.js";
+import { InteractionResponseType } from "discord-interactions";
+import { addPoints } from "../utils/database.js";
 
-export default async function handleVouch(interaction) {
-    const target = interaction.options.getUser("user");
+export default async function vouchCommand(interaction, res) {
+    const author = interaction.member.user.id;
+    const target = interaction.data.options[0]?.value;
 
     if (!target) {
-        return interaction.reply({
-            content: "❌ You must select a user to vouch for.",
-            ephemeral: true
+        return res.send({
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+            data: { content: "❌ You must choose a user to vouch for." }
         });
     }
 
-    if (target.id === interaction.user.id) {
-        return interaction.reply({
-            content: "❌ You cannot vouch for yourself.",
-            ephemeral: true
+    if (author === target) {
+        return res.send({
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+            data: { content: "❌ You cannot vouch for yourself." }
         });
     }
 
-    // +10 Punkte eintragen
-    await db.run(
-        "INSERT INTO points (userID, points, source) VALUES (?, ?, ?)",
-        [target.id, 10, "vouch"]
-    );
+    // Punkte hinzufügen (+10)
+    addPoints(target, 10);
 
-    // Embed
-    const embed = new EmbedBuilder()
-        .setColor(0x00ff6a)
-        .setTitle("New Vouch")
-        .setThumbnail(target.displayAvatarURL())
-        .addFields(
-            { name: "User", value: `${target}`, inline: true },
-            { name: "Given by", value: `${interaction.user}`, inline: true },
-            { name: "Points Added", value: `+10`, inline: true }
-        )
-        .setFooter({ text: "Vouch System" })
-        .setTimestamp();
-
-    await interaction.reply({ embeds: [embed] });
+    return res.send({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: {
+            embeds: [
+                {
+                    title: "💚 New Vouch Added",
+                    color: 0x00ff6a,
+                    fields: [
+                        { name: "User", value: `<@${target}>`, inline: true },
+                        { name: "Given by", value: `<@${author}>`, inline: true },
+                        { name: "Points Added", value: "+10", inline: true }
+                    ],
+                    footer: { text: "Vouch System" },
+                    timestamp: new Date().toISOString()
+                }
+            ]
+        }
+    });
 }
