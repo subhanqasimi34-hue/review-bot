@@ -13,7 +13,13 @@ export default async function handler(req, res) {
     const interaction = req.body;
 
     try {
-        // Slash command received
+        // 🔥 REQUIRED FOR WEBHOOK BOTS
+        // Respond to Discord PING checks
+        if (interaction.type === InteractionType.PING) {
+            return res.send({ type: InteractionResponseType.PONG });
+        }
+
+        // Slash commands
         if (interaction.type === InteractionType.APPLICATION_COMMAND) {
             const name = interaction.data.name;
 
@@ -25,19 +31,16 @@ export default async function handler(req, res) {
                 vouch: vouchCommand
             };
 
-            // command exists?
             if (commands[name]) {
                 return commands[name](interaction, res);
             }
 
-            // unknown command
             return res.send({
                 type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                 data: { content: "❌ Unknown command." }
             });
         }
 
-        // unsupported type
         return res.send({
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: { content: "⚠️ Unsupported interaction type." }
