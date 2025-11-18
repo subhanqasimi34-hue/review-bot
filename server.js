@@ -5,7 +5,7 @@ import handler from "./handler.js";
 const app = express();
 app.use(express.json());
 
-// Root – damit Render sieht, dass dein Service alive ist
+// Render Alive Check
 app.get("/", (req, res) => {
     res.status(200).send("Discord Review Bot is running via Webhooks.");
 });
@@ -17,7 +17,7 @@ app.post(
     handler
 );
 
-// Render braucht einen Port
+// Port for Render
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`🚀 Review Bot Webhook live on PORT ${PORT}`);
