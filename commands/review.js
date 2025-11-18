@@ -3,9 +3,9 @@ import { addReview } from "../utils/database.js";
 
 export default async function reviewCommand(interaction, res) {
     const reviewer = interaction.member.user.id;
-    const target = interaction.data.options[0].value;
+    const target = interaction.data.options[0]?.value;
 
-    // Self-review check
+    // ❌ Self-review check
     if (reviewer === target) {
         return res.send({
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
@@ -15,14 +15,21 @@ export default async function reviewCommand(interaction, res) {
         });
     }
 
-    // Extract options
-    const stars = interaction.data.options[1]?.value || 5;
-    const category = interaction.data.options[2]?.value || "other";
-    const text = interaction.data.options[3]?.value || "No comment provided.";
+    // ⭐ Extract and validate options
+    const rawStars = interaction.data.options[1]?.value || 5;
+    const stars = Math.max(1, Math.min(5, rawStars)); // Clamp between 1–5
 
-    // Save review → database.js automatically adds points
+    const allowedCategories = ["support", "design", "code", "other"];
+    const rawCategory = interaction.data.options[2]?.value || "other";
+    const category = allowedCategories.includes(rawCategory) ? rawCategory : "other";
+
+    const rawText = interaction.data.options[3]?.value || "No comment provided.";
+    const text = rawText.slice(0, 1024); // Discord field limit
+
+    // 💾 Save review to database
     addReview(target, reviewer, stars, category, text);
 
+    // ✅ Respond with embed
     return res.send({
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
         data: {
