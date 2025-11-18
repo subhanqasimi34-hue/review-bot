@@ -1,15 +1,21 @@
 import sqlite3 from "sqlite3";
 import path from "path";
 import fs from "fs";
+import { fileURLToPath } from "url";
 
-// Pfad zur SQLite-Datenbank
-const dbPath = path.join(process.cwd(), "data", "database.sqlite");
+// Stelle sicher, dass der Pfad immer relativ zu dieser Datei berechnet wird
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-// Pfad zum migrations-Ordner
-const migrationsPath = path.join(process.cwd(), "data", "migrations");
+// SQLite Datei -> /data/database.sqlite
+const dbPath = path.join(__dirname, "..", "data", "database.sqlite");
 
-// Verbindung zur sqlite db
+// migrations Ordner -> /data/migrations/
+const migrationsPath = path.join(__dirname, "..", "data", "migrations");
+
 sqlite3.verbose();
+
+// Verbindung herstellen
 export const db = new sqlite3.Database(dbPath, err => {
     if (err) {
         console.error("[DB] Fehler beim Verbinden:", err.message);
@@ -19,7 +25,7 @@ export const db = new sqlite3.Database(dbPath, err => {
     runMigrations();
 });
 
-// Funktion zum Ausführen von SQL-Befehlen
+// SQL Helper
 function execSQL(sql) {
     return new Promise((resolve, reject) => {
         db.exec(sql, err => {
@@ -33,12 +39,12 @@ function execSQL(sql) {
     });
 }
 
-// Migrationssystem
+// Migrationen durchführen
 async function runMigrations() {
     console.log("[DB] Starte Migrationen…");
 
     try {
-        // Prüfen, ob migrations Tabelle existiert
+        // Tabelle migrations erstellen
         await execSQL(`
             CREATE TABLE IF NOT EXISTS migrations (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -48,15 +54,13 @@ async function runMigrations() {
         `);
 
         const appliedMigrations = await getAppliedMigrations();
-
-        const files = fs
-            .readdirSync(migrationsPath)
+        const files = fs.readdirSync(migrationsPath)
             .filter(f => f.endsWith(".sql"))
             .sort();
 
         for (const file of files) {
             if (appliedMigrations.includes(file)) {
-                console.log(`[DB] ✔ Migration übersprungen (bereits ausgeführt): ${file}`);
+                console.log(`[DB] ✔ Migration übersprungen: ${file}`);
                 continue;
             }
 
@@ -76,7 +80,6 @@ async function runMigrations() {
     }
 }
 
-// Bereits ausgeführte Migrationen auslesen
 function getAppliedMigrations() {
     return new Promise((resolve, reject) => {
         db.all("SELECT name FROM migrations", (err, rows) => {
@@ -86,16 +89,11 @@ function getAppliedMigrations() {
     });
 }
 
-// Migration als ausgeführt markieren
 function markMigrationAsApplied(name) {
     return new Promise((resolve, reject) => {
-        db.run(
-            "INSERT INTO migrations (name) VALUES (?)",
-            [name],
-            err => {
-                if (err) reject(err);
-                else resolve();
-            }
-        );
+        db.run("INSERT INTO migrations (name) VALUES (?)", [name], err => {
+            if (err) reject(err);
+            else resolve();
+        });
     });
 }
