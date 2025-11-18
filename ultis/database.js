@@ -1,102 +1,101 @@
-import Database from "better-sqlite3";
+import sqlite3 from "sqlite3";
+import path from "path";
+import fs from "fs";
 
-// Database file
-const db = new Database("./data/database.sqlite");
+// Pfad zur SQLite-Datenbank
+const dbPath = path.join(process.cwd(), "data", "database.sqlite");
 
-// Create tables if they don’t exist
-db.exec(`
-CREATE TABLE IF NOT EXISTS users (
-    user_id TEXT PRIMARY KEY,
-    points INTEGER DEFAULT 0,
-    reviews_count INTEGER DEFAULT 0,
-    vouches_count INTEGER DEFAULT 0
-);
+// Pfad zum migrations-Ordner
+const migrationsPath = path.join(process.cwd(), "data", "migrations");
 
-CREATE TABLE IF NOT EXISTS reviews (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    target_id TEXT,
-    reviewer_id TEXT,
-    rating INTEGER,
-    category TEXT,
-    comment TEXT,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
+// Verbindung zur sqlite db
+sqlite3.verbose();
+export const db = new sqlite3.Database(dbPath, err => {
+    if (err) {
+        console.error("[DB] Fehler beim Verbinden:", err.message);
+        return;
+    }
+    console.log("[DB] Erfolgreich verbunden.");
+    runMigrations();
+});
 
-CREATE TABLE IF NOT EXISTS vouches (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    target_id TEXT,
-    sender_id TEXT,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-`);
-
-// Add review and update review stats
-export function addReview(targetId, reviewerId, rating, category, comment) {
-    db.prepare(`
-        INSERT INTO reviews (target_id, reviewer_id, rating, category, comment)
-        VALUES (?, ?, ?, ?, ?)
-    `).run(targetId, reviewerId, rating, category, comment);
-
-    const points = rating * 10;
-
-    db.prepare(`
-        INSERT INTO users (user_id, points, reviews_count)
-        VALUES (?, ?, 1)
-        ON CONFLICT(user_id) DO UPDATE SET
-            points = points + excluded.points,
-            reviews_count = reviews_count + 1
-    `).run(targetId, points);
+// Funktion zum Ausführen von SQL-Befehlen
+function execSQL(sql) {
+    return new Promise((resolve, reject) => {
+        db.exec(sql, err => {
+            if (err) {
+                console.error("[DB] SQL Fehler:", err.message);
+                reject(err);
+            } else {
+                resolve();
+            }
+        });
+    });
 }
 
-// Add vouch (+10 points)
-export function addVouch(targetId, senderId) {
-    db.prepare(`
-        INSERT INTO vouches (target_id, sender_id)
-        VALUES (?, ?)
-    `).run(targetId, senderId);
+// Migrationssystem
+async function runMigrations() {
+    console.log("[DB] Starte Migrationen…");
 
-    db.prepare(`
-        INSERT INTO users (user_id, points, vouches_count)
-        VALUES (?, 10, 1)
-        ON CONFLICT(user_id) DO UPDATE SET
-            points = points + excluded.points,
-            vouches_count = vouches_count + 1
-    `).run(targetId);
+    try {
+        // Prüfen, ob migrations Tabelle existiert
+        await execSQL(`
+            CREATE TABLE IF NOT EXISTS migrations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                applied_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        const appliedMigrations = await getAppliedMigrations();
+
+        const files = fs
+            .readdirSync(migrationsPath)
+            .filter(f => f.endsWith(".sql"))
+            .sort();
+
+        for (const file of files) {
+            if (appliedMigrations.includes(file)) {
+                console.log(`[DB] ✔ Migration übersprungen (bereits ausgeführt): ${file}`);
+                continue;
+            }
+
+            const filePath = path.join(migrationsPath, file);
+            const sql = fs.readFileSync(filePath, "utf8");
+
+            console.log(`[DB] ➜ Führe Migration aus: ${file}`);
+            await execSQL(sql);
+
+            await markMigrationAsApplied(file);
+            console.log(`[DB] ✔ Migration erfolgreich: ${file}`);
+        }
+
+        console.log("[DB] ✓ Alle Migrationen abgeschlossen.");
+    } catch (err) {
+        console.error("[DB] ❌ Fehler bei Migrationen:", err);
+    }
 }
 
-// ⭐ NEW — addPoints (for review.js & vouch.js)
-export function addPoints(userId, points) {
-    db.prepare(`
-        INSERT INTO users (user_id, points)
-        VALUES (?, ?)
-        ON CONFLICT(user_id) DO UPDATE SET
-            points = points + excluded.points
-    `).run(userId, points);
+// Bereits ausgeführte Migrationen auslesen
+function getAppliedMigrations() {
+    return new Promise((resolve, reject) => {
+        db.all("SELECT name FROM migrations", (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows.map(r => r.name));
+        });
+    });
 }
 
-// Get all reviews for a user
-export function getReviewsForUser(userId) {
-    return db.prepare(`
-        SELECT * FROM reviews 
-        WHERE target_id = ? 
-        ORDER BY id DESC
-    `).all(userId);
+// Migration als ausgeführt markieren
+function markMigrationAsApplied(name) {
+    return new Promise((resolve, reject) => {
+        db.run(
+            "INSERT INTO migrations (name) VALUES (?)",
+            [name],
+            err => {
+                if (err) reject(err);
+                else resolve();
+            }
+        );
+    });
 }
-
-// Get stats for profile command
-export function getUserStats(userId) {
-    return db.prepare(`
-        SELECT * FROM users WHERE user_id = ?
-    `).get(userId);
-}
-
-// Get leaderboard data
-export function getLeaderboard(limit = 10) {
-    return db.prepare(`
-        SELECT * FROM users
-        ORDER BY points DESC
-        LIMIT ?
-    `).all(limit);
-}
-
-export default db;
