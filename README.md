@@ -10,7 +10,7 @@ A professional Discord bot for reviews, vouches, ranking, profiles, and leaderbo
 - 🏆 Leaderboard (Top 10)
 - 📘 Profile with latest reviews
 - 💾 SQLite database
-- 🚀 Fully compatible with Render.com FREE plan
+- 🚀 Fully compatible with Discloud!
 
 ---
 
