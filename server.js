@@ -6,9 +6,14 @@ import handler from "./handler.js";
 const app = express();
 app.use(express.json());
 
-// Render Alive Check
+// Alive Check für Koyeb / UptimeRobot / Upptime
 app.get("/", (req, res) => {
-    res.status(200).send("Discord Review Bot is running via Webhooks.");
+    res.status(200).json({
+        status: "online",
+        service: "discord-review-bot",
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString()
+    });
 });
 
 // Discord Webhook Endpoint
@@ -18,7 +23,7 @@ app.post(
     handler
 );
 
-// Port für Render
+// Port für Koyeb
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`🚀 Review Bot Webhook live on PORT ${PORT}`);
